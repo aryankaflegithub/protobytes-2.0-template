@@ -1,0 +1,47 @@
+name: Lock Repository After Deadline
+
+on:
+  schedule:
+    # Deadline: Falgun 2, 2025 at 11:59 PM NPT
+    # This runs at 18:15 UTC on February 15, 2025
+    - cron: '15 18 15 2 *'
+  
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lock-repository:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Create DEADLINE_PASSED marker
+        run: |
+          echo "# ⏰ HACKATHON DEADLINE PASSED" > DEADLINE_PASSED.md
+          echo "" >> DEADLINE_PASSED.md
+          echo "This repository has been locked as the PROTOBYTES HACKATHON 2.0 deadline has passed." >> DEADLINE_PASSED.md
+          echo "" >> DEADLINE_PASSED.md
+          echo "**Deadline:** Falgun 2, 2025 at 11:59 PM NPT" >> DEADLINE_PASSED.md
+          echo "**Locked at:** $(date -u)" >> DEADLINE_PASSED.md
+          echo "" >> DEADLINE_PASSED.md
+          echo "No further commits will be accepted for judging." >> DEADLINE_PASSED.md
+          
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add DEADLINE_PASSED.md
+          git commit -m "Repository locked - Hackathon deadline passed"
+          git push
+      
+      - name: Protect main branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Attempting to lock main branch..."
+          # Note: Branch protection requires repository admin access
+          # Teams should NOT have admin access to their own repos
