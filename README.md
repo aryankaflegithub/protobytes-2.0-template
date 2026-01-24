@@ -16,22 +16,19 @@ This repository will be **automatically locked** after the deadline. No commits 
 
 ## Project Structure
 
-┌─ protobytes-2.0-template/
-│
-├─┬─ .github/
-│ └─┬─ workflows/
-│   ├─── lock-after-deadline.yml
-│   └─── deadline-warning.yml
-│
-├─┬─ src/
-│ └─── .gitkeep
-│
-├─┬─ docs/
-│ └─── .gitkeep
-│
-├─── README.md
-├─── SUBMISSION.md
-└─── .gitignore
+.github/workflows/lock-after-deadline.yml
+
+.github/workflows/deadline-warning.yml
+
+src/.gitkeep
+
+docs/.gitkeep
+
+README.md
+
+SUBMISSION.md
+
+.gitignore
 
 ## Before Deadline
 
