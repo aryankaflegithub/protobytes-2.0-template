@@ -2,157 +2,52 @@ name: Deadline Warning
 
 on:
   schedule:
-    # Warning 6 hours before deadline (12:15 PM UTC on Feb 15)
-    - cron: '15 12 15 2 *'
-    # Warning 1 hour before deadline (5:15 PM UTC on Feb 15)
-    - cron: '15 17 15 2 *'
-  
-  workflow_dispatch: # Allows manual testing
-
-permissions:
-  contents: write
-  issues: write
+    # Runs every day at 18:00 UTC
+    - cron: '0 18 * * *'
+  workflow_dispatch:
 
 jobs:
   deadline-warning:
     runs-on: ubuntu-latest
-    
+    permissions:
+      issues: write
+      contents: write
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Calculate time remaining
-        id: time_calc
+      - uses: actions/checkout@v4
+
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh -y
+
+      - name: Check deadline window
+        id: deadline_check
         run: |
-          DEADLINE="2025-02-15 18:14:00"
-          CURRENT=$(date -u '+%Y-%m-%d %H:%M:%S')
-          DIFF=$(($(date -d "$DEADLINE" +%s) - $(date -d "$CURRENT" +%s)))
-          HOURS=$((DIFF / 3600))
-          echo "hours_left=$HOURS" >> $GITHUB_OUTPUT
-      
-      - name: Create warning file
-        run: |
-          HOURS_LEFT="${{ steps.time_calc.outputs.hours_left }}"
-          
-          echo "# ⚠️ DEADLINE APPROACHING!" > DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "## 🚨 PROTOBYTES HACKATHON 2.0 - Time is Running Out!" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "### ⏰ Time Remaining" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "**Approximately $HOURS_LEFT hours left until deadline!**" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "**Final Deadline:** Falgun 2, 2025 at 11:59 PM NPT" >> DEADLINE_WARNING.md
-          echo "**Warning issued:** $(TZ='Asia/Kathmandu' date '+%B %d, %Y at %I:%M %p NPT')" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "---" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "## ✅ Final Checklist" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "Make sure to complete these before the deadline:" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "- [ ] **Complete your project code**" >> DEADLINE_WARNING.md
-          echo "- [ ] **Fill out SUBMISSION.md with all details**" >> DEADLINE_WARNING.md
-          echo "- [ ] **Test your application thoroughly**" >> DEADLINE_WARNING.md
-          echo "- [ ] **Add clear README with setup instructions**" >> DEADLINE_WARNING.md
-          echo "- [ ] **Commit and push ALL changes to GitHub**" >> DEADLINE_WARNING.md
-          echo "- [ ] **Verify everything is uploaded correctly**" >> DEADLINE_WARNING.md
-          echo "- [ ] **Double-check SUBMISSION.md is complete**" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "---" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "## ⚠️ IMPORTANT REMINDERS" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "- Commits after the deadline will NOT be accepted" >> DEADLINE_WARNING.md
-          echo "- The repository will be automatically locked" >> DEADLINE_WARNING.md
-          echo "- Make sure to commit early and often" >> DEADLINE_WARNING.md
-          echo "- Don't wait until the last minute!" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "---" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "**Push your code now! Time is running out!** 🚀" >> DEADLINE_WARNING.md
-          echo "" >> DEADLINE_WARNING.md
-          echo "Good luck with the final sprint! 💪" >> DEADLINE_WARNING.md
-      
-      - name: Commit warning file
-        run: |
-          git config user.name "PROTOBYTES Warning Bot"
-          git config user.email "actions@protobytes.hackathon"
-          git add DEADLINE_WARNING.md
-          
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
+          DEADLINE_UTC="2025-02-15 18:15:00"
+          NOW_UTC=$(date -u +"%Y-%m-%d %H:%M:%S")
+
+          DEADLINE_TS=$(date -d "$DEADLINE_UTC" +%s)
+          NOW_TS=$(date -d "$NOW_UTC" +%s)
+
+          DIFF_SECONDS=$((DEADLINE_TS - NOW_TS))
+
+          # 24 hours = 86400 seconds
+          if [ "$DIFF_SECONDS" -le 86400 ] && [ "$DIFF_SECONDS" -gt 0 ]; then
+            echo "warn=true" >> $GITHUB_OUTPUT
           else
-            git commit -m "⚠️ Deadline warning - ${{ steps.time_calc.outputs.hours_left }} hours remaining"
-            git push
+            echo "warn=false" >> $GITHUB_OUTPUT
           fi
-      
+
       - name: Create warning issue
+        if: steps.deadline_check.outputs.warn == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          HOURS_LEFT="${{ steps.time_calc.outputs.hours_left }}"
-          
-          gh issue create \
-            --title "⚠️ DEADLINE WARNING - $HOURS_LEFT Hours Remaining!" \
-            --body "## ⚠️ PROTOBYTES HACKATHON 2.0 - Deadline Approaching!
+          EXISTING=$(gh issue list --search "Deadline Approaching" --state open --json number --jq 'length')
 
-          ### ⏰ Time Check
-          - **Time Remaining:** Approximately **$HOURS_LEFT hours**
-          - **Final Deadline:** Falgun 2, 2025 at 11:59 PM NPT
-          - **Warning issued:** $(TZ='Asia/Kathmandu' date '+%B %d, %Y at %I:%M %p NPT')
-
-          ---
-
-          ## 🚨 ACTION REQUIRED
-
-          **The deadline is approaching fast!** Make sure you complete all tasks before time runs out.
-
-          ### ✅ Final Sprint Checklist
-
-          - [ ] **Code Complete:** All features implemented and working
-          - [ ] **SUBMISSION.md:** Filled out with all required information
-          - [ ] **Testing:** Application tested and bugs fixed
-          - [ ] **Documentation:** README with clear setup instructions
-          - [ ] **Commit Everything:** All files committed to GitHub
-          - [ ] **Verify Upload:** Double-check everything is on GitHub
-          - [ ] **Team Info:** All team member details in SUBMISSION.md
-
-          ---
-
-          ## ⚠️ Critical Reminders
-
-          - ⏰ **Any commits after the deadline will be DISQUALIFIED**
-          - 🔒 **Repository will be automatically locked** at the deadline
-          - 💾 **Commit and push regularly** - don't wait until the last minute
-          - 📝 **SUBMISSION.md is mandatory** - incomplete forms may be rejected
-          - 🚫 **Don't modify .github/workflows/** - automatic disqualification
-
-          ---
-
-          ## 💡 Pro Tips
-
-          - Commit your code in small, frequent batches
-          - Test everything one more time
-          - Make sure your README has clear installation steps
-          - Add screenshots/demo links to SUBMISSION.md
-          - Push your changes NOW, don't wait!
-
-          ---
-
-          ## 🆘 Need Help?
-
-          If you encounter technical issues:
-          - Contact organizers immediately
-          - Don't panic - stay calm and focused
-          - Make sure to commit what you have
-
-          ---
-
-          **Time is running out! Push your final changes now!** 🚀
-
-          Good luck team! You've got this! 💪🏆
-
-          ---
-          *This is an automated warning from the PROTOBYTES Deadline System*" \
-            --label "deadline-warning,urgent"
+          if [ "$EXISTING" -eq 0 ]; then
+            gh issue create \
+              --title "⚠️ Deadline Approaching (24 Hours Left)" \
+              --body "The submission deadline is **2025-02-15 18:15 UTC**.\n\nAny commits pushed after this time may be disqualified."
+          else
+            echo "Warning issue already exists"
+          fi
