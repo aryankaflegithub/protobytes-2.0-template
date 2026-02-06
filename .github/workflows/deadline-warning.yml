@@ -155,5 +155,4 @@ jobs:
 
           ---
           *This is an automated warning from the PROTOBYTES Deadline System*" \
-            --label "deadline-warning,urgent" \
-            --pin
+            --label "deadline-warning,urgent"
