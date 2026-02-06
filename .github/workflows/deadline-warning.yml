@@ -2,12 +2,12 @@ name: Deadline Warning
 
 on:
   schedule:
-    # Warning 6 hours before deadline (12:15 PM UTC on Feb 15)
-    - cron: '15 12 15 2 *'
-    # Warning 1 hour before deadline (5:15 PM UTC on Feb 15)
-    - cron: '15 17 15 2 *'
+    - cron: '15 12 15 2 *'  # Change this to your desired time
   
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   deadline-warning:
@@ -17,19 +17,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Create warning file
+      - name: Create or update warning file
         run: |
           echo "DEADLINE APPROACHING!" > DEADLINE_WARNING.md
           echo "" >> DEADLINE_WARNING.md
           echo "PROTOBYTES HACKATHON 2.0 deadline is approaching!" >> DEADLINE_WARNING.md
           echo "" >> DEADLINE_WARNING.md
           echo "**Final Deadline:** Falgun 2, 2025 at 11:59 PM NPT" >> DEADLINE_WARNING.md
-          echo "**Current Time:** $(TZ='Asia/Kathmandu' date)" >> DEADLINE_WARNING.md
+          echo "**Warning issued at:** $(TZ='Asia/Kathmandu' date)" >> DEADLINE_WARNING.md
           echo "" >> DEADLINE_WARNING.md
           echo "Make sure to commit and push your final changes before the deadline!" >> DEADLINE_WARNING.md
-          
+      
+      - name: Commit warning file
+        run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           git add DEADLINE_WARNING.md
-          git commit -m "Deadline warning notification"
-          git push
+          
+          # Only commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Deadline warning notification"
+            git push
+          fi
