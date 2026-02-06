@@ -2,113 +2,38 @@ name: Lock Repository After Deadline
 
 on:
   schedule:
-    # Deadline: February 15, 2025 at 6:15 PM UTC (11:59 PM NPT + buffer)
     - cron: '15 18 15 2 *'
-  
-  workflow_dispatch: # Allows manual testing
-
-permissions:
-  contents: write
-  issues: write
+  workflow_dispatch:
 
 jobs:
-  lock-repository:
+  lock:
     runs-on: ubuntu-latest
-    
+    permissions:
+      contents: write
+      issues: write
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      
-      - name: Create deadline marker file
+      - uses: actions/checkout@v4
+
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh -y
+
+      - name: Create deadline marker
+        run: echo "DEADLINE PASSED" > DEADLINE_PASSED.md
+
+      - name: Commit marker
         run: |
-          echo "# 🔒 HACKATHON DEADLINE PASSED" > DEADLINE_PASSED.md
-          echo "" >> DEADLINE_PASSED.md
-          echo "This repository has been locked as the PROTOBYTES HACKATHON 2.0 deadline has passed." >> DEADLINE_PASSED.md
-          echo "" >> DEADLINE_PASSED.md
-          echo "**Official Deadline:** Falgun 2, 2025 at 11:59 PM NPT" >> DEADLINE_PASSED.md
-          echo "**Locked at:** $(TZ='Asia/Kathmandu' date '+%B %d, %Y at %I:%M %p NPT')" >> DEADLINE_PASSED.md
-          echo "**UTC Timestamp:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> DEADLINE_PASSED.md
-          echo "" >> DEADLINE_PASSED.md
-          echo "---" >> DEADLINE_PASSED.md
-          echo "" >> DEADLINE_PASSED.md
-          echo "## ⚠️ IMPORTANT" >> DEADLINE_PASSED.md
-          echo "" >> DEADLINE_PASSED.md
-          echo "- **No further commits will be accepted for judging**" >> DEADLINE_PASSED.md
-          echo "- Any commits made after this timestamp will be disqualified" >> DEADLINE_PASSED.md
-          echo "- Judges will verify commit history against this marker" >> DEADLINE_PASSED.md
-          echo "- Do NOT delete this file - deletion = disqualification" >> DEADLINE_PASSED.md
-          echo "" >> DEADLINE_PASSED.md
-          echo "---" >> DEADLINE_PASSED.md
-          echo "" >> DEADLINE_PASSED.md
-          echo "Thank you for participating in PROTOBYTES HACKATHON 2.0!" >> DEADLINE_PASSED.md
-          echo "" >> DEADLINE_PASSED.md
-          echo "Results will be announced soon. Good luck! 🏆" >> DEADLINE_PASSED.md
-      
-      - name: Commit marker file
-        run: |
-          git config user.name "PROTOBYTES Deadline Bot"
-          git config user.email "actions@protobytes.hackathon"
+          git config user.name "Deadline Bot"
+          git config user.email "actions@github.com"
           git add DEADLINE_PASSED.md
-          git commit -m "🔒 DEADLINE PASSED - Repository locked for judging"
-          git push
-      
-      - name: Create deadline passed issue
+          if git diff --staged --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Deadline passed"
+            git push
+          fi
+
+      - name: Create issue
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh issue create \
-            --title "🔒 DEADLINE PASSED - Submission Closed" \
-            --body "## 🔒 PROTOBYTES HACKATHON 2.0 - Deadline Has Passed
-
-          The official submission deadline has been reached.
-
-          ### 📅 Timeline
-          - **Official Deadline:** Falgun 2, 2025 at 11:59 PM NPT
-          - **Repository Locked:** $(TZ='Asia/Kathmandu' date '+%B %d, %Y at %I:%M %p NPT')
-          - **UTC Timestamp:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
-
-          ### ⚠️ Important Information
-
-          ✅ **Your submission has been recorded**
-          - All commits up to the deadline timestamp are valid
-          - The \`DEADLINE_PASSED.md\` file marks the official cutoff
-          - Judges will review your repository as of this timestamp
-
-          ❌ **Post-deadline commits will NOT be considered**
-          - Any commits after this issue was created are disqualified
-          - Git history will be verified against the deadline marker
-          - Tampering with deadline markers = automatic disqualification
-
-          ### 🚫 Do NOT
-
-          - Delete the \`DEADLINE_PASSED.md\` file
-          - Modify commit timestamps
-          - Edit the \`.github/workflows/\` directory
-          - Make any changes expecting them to be judged
-
-          ### ✅ What Happens Next
-
-          1. **Review Period:** Judges will review all submissions
-          2. **Evaluation:** Projects will be evaluated based on submission criteria
-          3. **Results:** Winners will be announced soon
-          4. **Feedback:** All teams will receive feedback on their projects
-
-          ### 📋 Verify Your Submission
-
-          Make sure your submission includes:
-          - [ ] Completed \`SUBMISSION.md\` file
-          - [ ] Working code in your repository
-          - [ ] Clear setup/installation instructions
-          - [ ] All required files and dependencies
-
-          ---
-
-          **Thank you for participating in PROTOBYTES HACKATHON 2.0!** 🚀
-
-          Your hard work and dedication are appreciated. Results coming soon!
-
-          Good luck! 🏆
-
-          ---
-          *This is an automated message from the PROTOBYTES Deadline System*" \
-            --label "deadline,official,locked"
+        run: gh issue create --title "Deadline Passed" --body "Submissions closed"
