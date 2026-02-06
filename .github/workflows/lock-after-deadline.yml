@@ -111,5 +111,4 @@ jobs:
 
           ---
           *This is an automated message from the PROTOBYTES Deadline System*" \
-            --label "deadline,official,locked" \
-            --pin
+            --label "deadline,official,locked"
