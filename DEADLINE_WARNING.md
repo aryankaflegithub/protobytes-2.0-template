@@ -2,7 +2,7 @@
 
 ## 🚨 PROTOBYTES HACKATHON 2.0
 
-**Warning issued:** February 08, 2026 at 04:46 PM NPT
+**Warning issued:** February 08, 2026 at 04:56 PM NPT
 
 ### ⏰ Final Deadline: Falgun 2, 2025 at 11:59 PM NPT
 
