@@ -1,0 +1,158 @@
+name: Push Deadline Check
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+  issues: write
+  statuses: write
+  checks: write
+
+jobs:
+  check-deadline:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check if deadline has passed
+        id: deadline_check
+        run: |
+          # Check if DEADLINE_PASSED.md exists
+          if [ -f "DEADLINE_PASSED.md" ]; then
+            echo "deadline_passed=true" >> $GITHUB_OUTPUT
+            echo "🚨 DEADLINE HAS PASSED - This push is INVALID!"
+            
+            # Get the deadline timestamp
+            DEADLINE_TIME=$(git log --format="%ai" --diff-filter=A -- DEADLINE_PASSED.md | head -1)
+            echo "deadline_time=$DEADLINE_TIME" >> $GITHUB_OUTPUT
+            
+            # Get current commit info
+            COMMIT_TIME=$(git log -1 --format="%ai")
+            COMMIT_HASH=$(git log -1 --format="%h")
+            COMMIT_MSG=$(git log -1 --format="%s")
+            
+            echo "commit_time=$COMMIT_TIME" >> $GITHUB_OUTPUT
+            echo "commit_hash=$COMMIT_HASH" >> $GITHUB_OUTPUT
+            
+            echo "⚠️ Deadline was: $DEADLINE_TIME"
+            echo "🚫 This commit was: $COMMIT_TIME"
+            echo "📝 Commit: $COMMIT_HASH - $COMMIT_MSG"
+          else
+            echo "deadline_passed=false" >> $GITHUB_OUTPUT
+            echo "✅ Deadline has not passed yet - push is valid"
+          fi
+      
+      - name: Create warning comment on latest commit
+        if: steps.deadline_check.outputs.deadline_passed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          
+          # Create a comment on the commit
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/commits/$COMMIT_SHA/comments \
+            -f body="## 🚫 INVALID COMMIT - DEADLINE PASSED
+
+          ⚠️ **This commit was made AFTER the official deadline!**
+
+          ### ⏰ Timeline
+          - **Deadline was:** ${{ steps.deadline_check.outputs.deadline_time }}
+          - **This commit:** ${{ steps.deadline_check.outputs.commit_time }}
+
+          ### 🚨 WARNING
+
+          **This commit will NOT be considered for judging.**
+
+          According to hackathon rules:
+          - All commits after the deadline marker are disqualified
+          - This commit violates the submission deadline
+          - Your team may face penalties
+
+          ### ✋ STOP
+
+          **Do not make any more commits!**
+
+          Your submission will be judged based on commits made BEFORE the deadline.
+
+          ---
+          *Automated warning from PROTOBYTES Deadline System*"
+      
+      - name: Create issue for late push
+        if: steps.deadline_check.outputs.deadline_passed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          COMMIT_MSG=$(git log -1 --format="%s")
+          PUSHER="${{ github.actor }}"
+          
+          gh issue create \
+            --title "🚨 LATE PUSH DETECTED - Commit After Deadline" \
+            --body "## 🚫 Invalid Commit Detected
+
+          A commit was pushed to this repository **after the official deadline**.
+
+          ### 📋 Commit Details
+          - **Commit:** \`$COMMIT_SHA\`
+          - **Message:** $COMMIT_MSG
+          - **Pushed by:** @$PUSHER
+          - **Time:** ${{ steps.deadline_check.outputs.commit_time }}
+
+          ### ⏰ Deadline Information
+          - **Official Deadline:** ${{ steps.deadline_check.outputs.deadline_time }}
+          - **This commit was made:** AFTER the deadline ❌
+
+          ### 🚨 Consequences
+
+          **This commit will NOT be considered for judging.**
+
+          According to PROTOBYTES HACKATHON 2.0 rules:
+          - Commits after the deadline are automatically disqualified
+          - Your submission will be evaluated based on the state BEFORE the deadline
+          - Making commits after the deadline may result in team penalties
+
+          ### ✋ Action Required
+
+          **STOP making commits immediately!**
+
+          Do not push any more code to this repository.
+
+          If you believe this is an error, contact the organizing team immediately.
+
+          ---
+          *Automated warning - PROTOBYTES Deadline System*" \
+            --label "violation,late-push,urgent"
+      
+      - name: Set commit status
+        if: steps.deadline_check.outputs.deadline_passed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMIT_SHA=$(git rev-parse HEAD)
+          
+          # Set a failing status on the commit
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/statuses/$COMMIT_SHA \
+            -f state='failure' \
+            -f context='PROTOBYTES Deadline Check' \
+            -f description='⚠️ COMMIT AFTER DEADLINE - DISQUALIFIED' \
+            -f target_url='https://github.com/${{ github.repository }}/issues'
+      
+      - name: Success message
+        if: steps.deadline_check.outputs.deadline_passed == 'false'
+        run: |
+          echo "✅ Push is valid - deadline has not passed yet"
+          echo "Keep working and push your code regularly!"
