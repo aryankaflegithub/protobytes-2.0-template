@@ -1,39 +1,79 @@
-name: Lock Repository After Deadline
+name: Lock After Deadline
 
 on:
   schedule:
-    - cron: '18 10 8 2 *'
+    # Deadline: 11:59 PM NPT = 6:14 PM UTC on Feb 15
+    - cron: '5 11 8 2 *'
+  
   workflow_dispatch:
 
+permissions:
+  contents: write
+  issues: write
+
 jobs:
-  lock:
+  lock-repository:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
-
+    
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install GitHub CLI
-        run: sudo apt-get install gh -y
-
-      - name: Create deadline marker
-        run: echo "DEADLINE PASSED" > DEADLINE_PASSED.md
-
-      - name: Commit marker
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Create lock marker
         run: |
-          git config user.name "Deadline Bot"
-          git config user.email "actions@github.com"
+          echo "# 🔒 DEADLINE PASSED" > DEADLINE_PASSED.md
+          echo "" >> DEADLINE_PASSED.md
+          echo "## PROTOBYTES HACKATHON 2.0 - Submission Closed" >> DEADLINE_PASSED.md
+          echo "" >> DEADLINE_PASSED.md
+          echo "**Deadline:** Falgun 2, 2025 at 11:59 PM NPT" >> DEADLINE_PASSED.md
+          echo "**Locked at:** $(TZ='Asia/Kathmandu' date '+%B %d, %Y at %I:%M %p NPT')" >> DEADLINE_PASSED.md
+          echo "**UTC Timestamp:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> DEADLINE_PASSED.md
+          echo "" >> DEADLINE_PASSED.md
+          echo "---" >> DEADLINE_PASSED.md
+          echo "" >> DEADLINE_PASSED.md
+          echo "## 🚫 NO MORE COMMITS ACCEPTED" >> DEADLINE_PASSED.md
+          echo "" >> DEADLINE_PASSED.md
+          echo "The official submission deadline has passed." >> DEADLINE_PASSED.md
+          echo "" >> DEADLINE_PASSED.md
+          echo "**Any commits after this timestamp will be DISQUALIFIED.**" >> DEADLINE_PASSED.md
+          echo "" >> DEADLINE_PASSED.md
+          echo "Your submission has been recorded. Thank you for participating!" >> DEADLINE_PASSED.md
+      
+      - name: Commit lock marker
+        run: |
+          git config user.name "PROTOBYTES Lock Bot"
+          git config user.email "actions@protobytes.hackathon"
           git add DEADLINE_PASSED.md
-          if git diff --staged --quiet; then
-            echo "No changes"
-          else
-            git commit -m "Deadline passed"
-            git push
-          fi
-
-      - name: Create issue
+          git commit -m "🔒 DEADLINE PASSED - Submissions closed"
+          git push
+      
+      - name: Create lock issue
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh issue create --title "Deadline Passed" --body "Submissions closed"
+        run: |
+          gh issue create \
+            --title "🔒 DEADLINE PASSED - Repository Locked" \
+            --body "## 🔒 Submission Deadline Has Passed
+
+          The official PROTOBYTES HACKATHON 2.0 deadline has been reached.
+
+          ### 📅 Timeline
+          - **Deadline:** Falgun 2, 2025 at 11:59 PM NPT
+          - **Locked at:** $(TZ='Asia/Kathmandu' date '+%B %d, %Y at %I:%M %p NPT')
+
+          ### ⚠️ Important
+
+          **Your submission has been recorded.**
+
+          ❌ **Any commits after this timestamp will NOT be considered for judging.**
+
+          Please do not make any more commits. The repository will be reviewed in its current state.
+
+          ### What Happens Next
+
+          - Judges will review your submission
+          - Winners will be announced soon
+          - Thank you for participating!
+
+          🏆 Good luck!" \
+            --label "deadline,locked,official"
